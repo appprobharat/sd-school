@@ -1,37 +1,45 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import '../api_service.dart';
 
-class StudentAlertPage extends StatefulWidget {
-  const StudentAlertPage({super.key});
+import 'package:flutter/material.dart';
+import 'package:sd_school/api_service.dart';
+
+class AlertPage extends StatefulWidget {
+  const AlertPage({super.key});
 
   @override
-  State<StudentAlertPage> createState() => _StudentAlertPageState();
+  State<AlertPage> createState() => _AlertPageState();
 }
 
-class _StudentAlertPageState extends State<StudentAlertPage> {
+class _AlertPageState extends State<AlertPage> {
+  String? selectedClass;
   bool sending = false;
-
+  String? selectedSection;
   bool selectAll = true;
-
+  int? selectedClassId;
+  bool loadingClass = false;
+  bool loadingSection = false;
+  int? selectedSectionId;
   final TextEditingController messageCtrl = TextEditingController();
-
+  List<Map<String, dynamic>> classList = [];
+  List<Map<String, dynamic>> sectionList = [];
   bool hasLoadedData = false;
   List<Map<String, dynamic>> students = [];
   bool loadingStudents = false;
   @override
   void initState() {
     super.initState();
-    fetchStudents();
+    fetchClasses();
   }
 
   Future<void> fetchStudents() async {
+    if (selectedClassId == null || selectedSectionId == null) return;
+
     setState(() => loadingStudents = true);
 
     final res = await ApiService.post(
       context,
-      "/teacher/student/list",
-      body: {},
+      "/get_student",
+      body: {"ClassId": selectedClassId, "SectionId": selectedSectionId},
     );
 
     if (res != null && res.statusCode == 200) {
@@ -42,10 +50,10 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
           "id": e["id"],
           "name": e["StudentName"],
           "father": e["FatherName"],
-          "roll": e["RollNo"],
-          "dob": e["DOB"],
-          "image": e["StudentPhoto"],
+          "mobile": e["ContactNo"].toString(),
+          "class": "${e["Class"]} / ${e["Section"]}",
           "selected": true,
+          "image": null,
         };
       }).toList();
 
@@ -60,7 +68,7 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
 
     final res = await ApiService.post(
       context,
-      "/teacher/student/alert",
+      "/admin/student/alert",
       body: {"message": messageCtrl.text.trim(), "student_ids": studentIds},
     );
 
@@ -76,6 +84,51 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
         context,
       ).showSnackBar(const SnackBar(content: Text("Failed to send alert")));
     }
+  }
+
+  Future<void> fetchClasses() async {
+    setState(() => loadingClass = true);
+
+    final res = await ApiService.post(context, "/get_class");
+
+    if (res != null && res.statusCode == 200) {
+      classList = List<Map<String, dynamic>>.from(
+        (jsonDecode(res.body) as List),
+      );
+    }
+
+    setState(() => loadingClass = false);
+  }
+
+  Future<void> fetchSections(int classId) async {
+    setState(() {
+      loadingSection = true;
+      sectionList.clear();
+      selectedSection = null;
+      selectedSectionId = null;
+      students.clear(); // 🔥 clear students immediately
+    });
+
+    final res = await ApiService.post(
+      context,
+      "/get_section",
+      body: {"ClassId": classId},
+    );
+
+    if (res != null && res.statusCode == 200) {
+      sectionList = List<Map<String, dynamic>>.from(
+        (jsonDecode(res.body) as List),
+      );
+
+      if (sectionList.isNotEmpty) {
+        selectedSectionId = sectionList.first['id'];
+        selectedSection = sectionList.first['SectionName'];
+
+        await fetchStudents();
+      }
+    }
+
+    setState(() => loadingSection = false);
   }
 
   @override
@@ -102,6 +155,56 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
         padding: const EdgeInsets.all(10),
         child: Column(
           children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _iconDropdownField(
+                    icon: Icons.school,
+                    hint: "Select Class",
+                    value: selectedClass,
+                    items: classList,
+
+                    labelKey: "Class",
+                    onChanged: (v) {
+                      final cls = classList.firstWhere((e) => e['Class'] == v);
+
+                      setState(() {
+                        selectedClass = v;
+                        selectedClassId = cls['id'];
+                        selectedSection = null;
+                        selectedSectionId = null;
+                        students.clear();
+                        selectAll = true;
+                      });
+
+                      fetchSections(selectedClassId!);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _iconDropdownField(
+                    icon: Icons.layers,
+                    hint: "Select Section",
+                    value: selectedSection,
+                    items: sectionList,
+                    labelKey: "SectionName",
+                    onChanged: (v) {
+                      final sec = sectionList.firstWhere(
+                        (e) => e['SectionName'] == v,
+                      );
+                      setState(() {
+                        selectedSection = v;
+                        selectedSectionId = sec['id'];
+                      });
+
+                      fetchStudents();
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             _messageBox(),
             _selectAll(),
             Expanded(child: _studentList()),
@@ -213,6 +316,55 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
     );
   }
 
+  Widget _iconDropdownField({
+    required IconData icon,
+    required String hint,
+    required String? value,
+    required List<Map<String, dynamic>> items,
+    required String labelKey,
+    required Function(String) onChanged,
+  }) {
+    return Container(
+      height: 38,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: value,
+                isExpanded: true,
+                hint: Text(
+                  hint,
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                items: items.map((e) {
+                  return DropdownMenuItem<String>(
+                    value: e[labelKey].toString(),
+                    child: Text(
+                      e[labelKey].toString(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (v) {
+                  if (v != null) onChanged(v);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _studentList() {
     if (loadingStudents) {
       return const Center(child: CircularProgressIndicator());
@@ -250,13 +402,8 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
               ),
               CircleAvatar(
                 radius: 22,
-                backgroundImage: s['image'] != null
-                    ? NetworkImage(s['image'])
-                    : null,
                 backgroundColor: Colors.grey.shade300,
-                child: s['image'] == null
-                    ? const Icon(Icons.person, size: 22)
-                    : null,
+                child: const Icon(Icons.person, size: 22),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -271,21 +418,20 @@ class _StudentAlertPageState extends State<StudentAlertPage> {
                       ),
                     ),
                     Text(
-                      "Father: ${s['father']}",
+                      "Father Name: ${s['father']}",
                       style: const TextStyle(fontSize: 12),
                     ),
-
                     Text(
-                      "Roll No: ${s['roll']}",
+                      "Mobile No.: ${s['mobile']}",
                       style: const TextStyle(fontSize: 12),
                     ),
-
+                    const SizedBox(height: 4),
                     Text(
-                      "DOB: ${s['dob']}",
+                      "Class / Section: ${s['class']}",
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.deepPurple,
                         fontWeight: FontWeight.w600,
+                        color: Colors.deepPurple,
                       ),
                     ),
                   ],

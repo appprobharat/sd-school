@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:sd_school/admin/admin_dashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:sd_school/api_service.dart';
@@ -18,7 +19,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isLoading = false;
   String _errorMessage = '';
-  String selectedRole = 'Student';
 
   @override
   void dispose() {
@@ -28,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
+    // 1️⃣ Validation
     if (idController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty) {
       setState(() {
@@ -43,15 +44,16 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
+      // 2️⃣ API Call (NO type sent)
       final response = await ApiService.postPublic(
         "/login",
         body: {
           'username': idController.text.trim(),
           'password': passwordController.text,
-          'type': selectedRole,
         },
-      ).timeout(const Duration(seconds: 15)); // 🔴 TIMEOUT ADDED
+      ).timeout(const Duration(seconds: 15));
 
+      // 3️⃣ Null response check
       if (response == null) {
         setState(() {
           _errorMessage = "Server not responding";
@@ -63,22 +65,26 @@ class _LoginPageState extends State<LoginPage> {
       final data = jsonDecode(response.body);
       debugPrint("🟢 LOGIN RESPONSE: $data");
 
+      // 4️⃣ Success
       if (data['status'] == true) {
         await ApiService.saveSession(data);
 
-        // 🔴 STOP LOADER BEFORE ANY NAVIGATION
-        if (!mounted) return;
-        setState(() => _isLoading = false);
-
-        // send token AFTER stopping loader (safe)
-        sendFcmTokenToLaravel();
+        await sendFcmTokenToLaravel();
 
         if (!mounted) return;
 
-        if (selectedRole == 'Teacher') {
+        final String userType = data['user_type'];
+
+        if (userType == 'Teacher') {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const TeacherDashboardScreen()),
+            (_) => false,
+          );
+        } else if (userType == 'Admin') {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => AdminDashboardPage()),
             (_) => false,
           );
         } else {
@@ -89,24 +95,25 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
+        // 5️⃣ Invalid credentials
         setState(() {
           _errorMessage = data['message'] ?? "Invalid credentials";
-          _isLoading = false;
         });
       }
     } on TimeoutException {
-      // 🔴 INTERNET SLOW / SERVER STUCK
       setState(() {
-        _errorMessage = "Connection timeout. Please try again.";
-        _isLoading = false;
+        _errorMessage = "Request timeout. Please try again.";
       });
     } catch (e) {
       debugPrint("❌ LOGIN ERROR: $e");
-
       setState(() {
-        _errorMessage = "Something went wrong. Try again.";
-        _isLoading = false;
+        _errorMessage = "Something went wrong";
       });
+    } finally {
+      // 6️⃣ Loader stop (always)
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -142,268 +149,180 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Widget roleToggleSwitch() {
-    return Container(
-      width: 250,
-      height: 50,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        color: Colors.grey[200],
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            blurRadius: 4,
-            offset: Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Student tab
-          Expanded(
-            child: InkWell(
-              onTap: () => setState(() => selectedRole = 'Student'),
-              child: AnimatedContainer(
-                duration: Duration(milliseconds: 300),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: selectedRole == 'Student'
-                      ? LinearGradient(
-                          colors: [Colors.indigoAccent, AppColors.primary],
-                        )
-                      : null,
-                ),
-                child: Text(
-                  "Student",
-                  style: TextStyle(
-                    color: selectedRole == 'Student'
-                        ? Colors.white
-                        : AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Teacher tab
-          Expanded(
-            child: InkWell(
-              onTap: () => setState(() => selectedRole = 'Teacher'),
-              child: AnimatedContainer(
-                duration: Duration(milliseconds: 300),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: selectedRole == 'Teacher'
-                      ? LinearGradient(
-                          colors: [Colors.indigoAccent, AppColors.primary],
-                        )
-                      : null,
-                ),
-                child: Text(
-                  "Teacher",
-                  style: TextStyle(
-                    color: selectedRole == 'Teacher'
-                        ? Colors.white
-                        : AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isStudent = selectedRole == 'Student';
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(AppAssets.loginBackground),
-            fit: BoxFit.contain,
-          ),
+          gradient: LinearGradient(colors: [Colors.white, Colors.white]),
         ),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(20),
-              child: Container(
-                child: Column(
-                  children: [
-                    Image.asset(AppAssets.logo, height: 80),
-                    SizedBox(height: 10),
-                    Text(
-                      AppAssets.schoolName,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
+              child: Column(
+                children: [
+                  Image.asset(AppAssets.logo, height: 80),
+                  SizedBox(height: 10),
+                  Text(
+                    AppAssets.schoolName,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
                     ),
-                    SizedBox(height: 10),
-                    Text(
-                      AppAssets.schoolDescription,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    AppAssets.schoolDescription,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    "Login Here",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
                     ),
-                    SizedBox(height: 20),
-                    roleToggleSwitch(),
-                    SizedBox(height: 30),
+                  ),
 
-                    Text(
-                      "$selectedRole Login",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    SizedBox(height: 20),
+                  SizedBox(height: 20),
 
-                    TextField(
-                      controller: idController,
-                      decoration: InputDecoration(
-                        labelText: isStudent ? "Student ID" : "Teacher ID",
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  TextField(
+                    controller: idController,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      prefixIcon: Icon(Icons.person),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 15),
+
+                  TextField(
+                    controller: passwordController,
+                    obscureText: _obscureText,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      prefixIcon: Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureText
+                              ? Icons.visibility
+                              : Icons.visibility_off,
                         ),
-                        filled: true,
-                        fillColor: Colors.white,
+                        onPressed: () =>
+                            setState(() => _obscureText = !_obscureText),
                       ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    SizedBox(height: 15),
+                  ),
 
-                    TextField(
-                      controller: passwordController,
-                      obscureText: _obscureText,
-                      decoration: InputDecoration(
-                        labelText: "Password",
-                        prefixIcon: Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureText
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                  if (_errorMessage.isNotEmpty)
+                    Container(
+                      margin: EdgeInsets.only(top: 16),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                          onPressed: () =>
-                              setState(() => _obscureText = !_obscureText),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                    ),
-
-                    if (_errorMessage.isNotEmpty)
-                      Container(
-                        margin: EdgeInsets.only(top: 16),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.danger,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                _errorMessage,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              _errorMessage,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  SizedBox(height: 40),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-
-                    SizedBox(height: 40),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: _isLoading ? null : _login,
-                        child: _isLoading
-                            ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                "Login",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
+                      onPressed: _isLoading ? null : _login,
+                      child: _isLoading
+                          ? SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
                                 ),
                               ),
-                      ),
-                    ),
-
-                    SizedBox(height: 40),
-
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      children: [
-                        Text("Powered by ", style: TextStyle(fontSize: 12)),
-                        Text(
-                          "TechInnovation App Pvt. Ltd.®",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.designerColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          "Visit our website ",
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        GestureDetector(
-                          onTap: _launchURL,
-                          child: Text(
-                            AppAssets.websiteName,
-                            style: TextStyle(
-                              color: AppColors.info,
-                              fontSize: 12,
+                            )
+                          : Text(
+                              "Login",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
                     ),
-                  ],
-                ),
+                  ),
+
+                  SizedBox(height: 20),
+
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    children: [
+                      Text("Powered by ", style: TextStyle(fontSize: 12)),
+                      Text(
+                        "TechInnovation App Pvt. Ltd.®",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.designerColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      SizedBox(width: 5),
+                      Text(
+                        "Visit our website ",
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      GestureDetector(
+                        onTap: _launchURL,
+                        child: Text(
+                          AppAssets.websiteName,
+                          style: TextStyle(color: AppColors.info, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

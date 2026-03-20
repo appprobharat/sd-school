@@ -1241,28 +1241,7 @@ class LeftSidebarMenu extends StatelessWidget {
                 );
               },
             ),
-            // sidebarTile(
-            //   icon: Icons.dashboard,
-            //   context: context,
-            //   title: 'New Dashboard',
-            //   onTap: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(builder: (_) => DashboardNew()),
-            //     );
-            //   },
-            // ),
-            // sidebarTile(
-            //   icon: Icons.dashboard,
-            //   context: context,
-            //   title: 'New Dashboard',
-            //   onTap: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(builder: (_) => StudentDashboard()),
-            //     );
-            //   },
-            // ),
+        
             sidebarTile(
               icon: Icons.person,
               context: context,
