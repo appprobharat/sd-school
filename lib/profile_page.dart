@@ -108,16 +108,17 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  ImageProvider _profileImage() {
+ ImageProvider _profileImage() {
     if (studentPhoto.isEmpty) {
       return const AssetImage('assets/images/logo_new.png');
     }
     return NetworkImage(
       studentPhoto.startsWith('http')
           ? studentPhoto
-          : 'https://school.edusathi.in/$studentPhoto',
+          : '${ApiService.Url}/$studentPhoto',
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
