@@ -67,28 +67,29 @@ class ApiService {
   }
 
   // ================= POST WITHOUT TOKEN (LOGIN / OTP) =================
-  static Future<http.Response?> postPublic(
-    String endpoint, {
-    Map<String, dynamic>? body,
-  }) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse("$baseUrl$endpoint"),
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode(body ?? {}),
-          )
-          .timeout(timeout);
+static Future<http.Response> postPublic(
+  String endpoint, {
+  Map<String, dynamic>? body,
+}) async {
+  try {
+    final response = await http
+        .post(
+          Uri.parse("$baseUrl$endpoint"),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body ?? {}),
+        )
+        .timeout(const Duration(seconds: 30)); // increase timeout
 
-      return response;
-    } on TimeoutException {
-      debugPrint("⏱ API TIMEOUT: $endpoint");
-      return null;
-    }
+    return response;
+  } on TimeoutException {
+    throw Exception("Request timeout");
+  } catch (e) {
+    throw Exception("Network error: $e"); 
   }
+}
 
   // ================= GET =================
 

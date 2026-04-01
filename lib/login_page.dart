@@ -27,95 +27,90 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    // 1️⃣ Validation
-    if (idController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty) {
+ Future<void> _login() async {
+  if (idController.text.trim().isEmpty ||
+      passwordController.text.trim().isEmpty) {
+    setState(() {
+      _errorMessage = "Please enter ID and password";
+      _isLoading = false;
+    });
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+    _errorMessage = '';
+  });
+
+  try {
+    final response = await ApiService.postPublic(
+      "/login",
+      body: {
+        'username': idController.text.trim(),
+        'password': passwordController.text,
+      },
+    );
+
+    // ✅ STATUS CODE CHECK
+    if (response.statusCode != 200) {
       setState(() {
-        _errorMessage = "Please enter ID and password";
-        _isLoading = false;
+        _errorMessage = "Server error (${response.statusCode})";
       });
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
+    // ✅ SAFE JSON PARSE
+    final data = jsonDecode(response.body);
+    debugPrint("🟢 LOGIN RESPONSE: $data");
 
-    try {
-      // 2️⃣ API Call (NO type sent)
-      final response = await ApiService.postPublic(
-        "/login",
-        body: {
-          'username': idController.text.trim(),
-          'password': passwordController.text,
-        },
-      ).timeout(const Duration(seconds: 15));
+    if (data['status'] == true) {
+      await ApiService.saveSession(data);
+      await sendFcmTokenToLaravel();
 
-      // 3️⃣ Null response check
-      if (response == null) {
-        setState(() {
-          _errorMessage = "Server not responding";
-          _isLoading = false;
-        });
-        return;
-      }
+      if (!mounted) return;
 
-      final data = jsonDecode(response.body);
-      debugPrint("🟢 LOGIN RESPONSE: $data");
+      final String userType = data['user_type'];
 
-      // 4️⃣ Success
-      if (data['status'] == true) {
-        await ApiService.saveSession(data);
-
-        await sendFcmTokenToLaravel();
-
-        if (!mounted) return;
-
-        final String userType = data['user_type'];
-
-        if (userType == 'Teacher') {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const TeacherDashboardScreen()),
-            (_) => false,
-          );
-        } else if (userType == 'Admin') {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => AdminDashboardPage()),
-            (_) => false,
-          );
-        } else {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-            (_) => false,
-          );
-        }
+      if (userType == 'Teacher') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const TeacherDashboardScreen()),
+          (_) => false,
+        );
+      } else if (userType == 'Admin') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => AdminDashboardPage()),
+          (_) => false,
+        );
       } else {
-        // 5️⃣ Invalid credentials
-        setState(() {
-          _errorMessage = data['message'] ?? "Invalid credentials";
-        });
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (_) => false,
+        );
       }
-    } on TimeoutException {
+    } else {
       setState(() {
-        _errorMessage = "Request timeout. Please try again.";
+        _errorMessage = data['message'] ?? "Invalid credentials";
       });
-    } catch (e) {
-      debugPrint("❌ LOGIN ERROR: $e");
-      setState(() {
-        _errorMessage = "Something went wrong";
-      });
-    } finally {
-      // 6️⃣ Loader stop (always)
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    }
+  } on TimeoutException {
+    setState(() {
+      _errorMessage = "Request timeout. Please try again.";
+    });
+  } catch (e) {
+    debugPrint("❌ LOGIN ERROR: $e");
+
+    setState(() {
+      _errorMessage = e.toString(); // ✅ REAL ERROR show karo
+    });
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   Future<void> sendFcmTokenToLaravel() async {
     final fcmToken = await FirebaseMessaging.instance.getToken();
