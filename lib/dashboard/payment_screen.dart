@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:sd_school/api_service.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 class PaymentWebView extends StatefulWidget {
   final String paymentUrl;
-  final String successRedirectUrl; 
-  final String failureRedirectUrl; 
+  final String successRedirectUrl;
+  final String failureRedirectUrl;
   const PaymentWebView({
     super.key,
     required this.paymentUrl,
-    required this.successRedirectUrl, 
+    required this.successRedirectUrl,
     required this.failureRedirectUrl,
   });
   @override
@@ -32,7 +31,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
               _isLoading = false;
             });
           },
-              onNavigationRequest: (NavigationRequest request) async {
+          onNavigationRequest: (NavigationRequest request) async {
             final url = request.url;
             final lowerUrl = url.toLowerCase();
 
