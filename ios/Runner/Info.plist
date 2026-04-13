@@ -33,9 +33,6 @@
 
 <key>NSPhotoLibraryUsageDescription</key>
 <string>This app requires photo library access to select images.</string>
-
-<key>NSUserTrackingUsageDescription</key>
-<string>This app uses data to improve user experience.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 <string>This app needs location access to provide location-based services.</string>
 
