@@ -11,6 +11,7 @@ class ApiService {
   static const String baseUrl = "https://sdschooleducation.apppro.in/api";
     static const String Url = "https://sdschooleducation.apppro.in";
 
+ 
   /// ⏱ Timeout (iOS safe)
   static const Duration timeout = Duration(seconds: 20);
 
@@ -33,12 +34,14 @@ class ApiService {
     return prefs.getString('auth_token') ?? '';
   }
 
-
-
   static Future<Map<String, String>> multipartHeaders() async {
     final token = await _getToken();
     return {'Authorization': 'Bearer $token', 'Accept': 'application/json'};
   }
+static Future<Map<String, String>> headers() async {
+  return await _headers();
+}
+
   // ================= LOGOUT =================
 
   static Future<void> forceLogout(BuildContext context) async {
@@ -67,29 +70,28 @@ class ApiService {
   }
 
   // ================= POST WITHOUT TOKEN (LOGIN / OTP) =================
-static Future<http.Response> postPublic(
-  String endpoint, {
-  Map<String, dynamic>? body,
-}) async {
-  try {
-    final response = await http
-        .post(
-          Uri.parse("$baseUrl$endpoint"),
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(body ?? {}),
-        )
-        .timeout(const Duration(seconds: 30)); // increase timeout
+  static Future<http.Response?> postPublic(
+    String endpoint, {
+    Map<String, dynamic>? body,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse("$baseUrl$endpoint"),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body ?? {}),
+          )
+          .timeout(timeout);
 
-    return response;
-  } on TimeoutException {
-    throw Exception("Request timeout");
-  } catch (e) {
-    throw Exception("Network error: $e"); 
+      return response;
+    } on TimeoutException {
+      debugPrint("⏱ API TIMEOUT: $endpoint");
+      return null;
+    }
   }
-}
 
   // ================= GET =================
 

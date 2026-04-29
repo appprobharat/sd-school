@@ -53,6 +53,15 @@ class _LoginPageState extends State<LoginPage> {
         },
       ).timeout(const Duration(seconds: 15));
 
+      // 3️⃣ Null response check
+      if (response == null) {
+        setState(() {
+          _errorMessage = "Server not responding";
+          _isLoading = false;
+        });
+        return;
+      }
+
       final data = jsonDecode(response.body);
       debugPrint("🟢 LOGIN RESPONSE: $data");
 
