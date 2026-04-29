@@ -1,3 +1,4 @@
+import 'package:sd_school/admin/admin_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -12,26 +13,20 @@ import 'package:sd_school/teacher/teacher_dashboard_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 /// 🔔 Background notification handler
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseMessaging.onBackgroundMessage(
-    _firebaseMessagingBackgroundHandler,
-  );
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await NotificationService.initialize();
   runApp(const MyApp());
-  
 }
 
 class MyApp extends StatelessWidget {
@@ -41,8 +36,11 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: navigatorKey,
-        navigatorObservers: [routeObserver], 
+      navigatorObservers: [routeObserver],
       debugShowCheckedModeBanner: false,
+
+      supportedLocales: const [Locale('en')],
+
       home: const RootDecider(),
     );
   }
@@ -65,28 +63,25 @@ class _RootDeciderState extends State<RootDecider> {
   void initState() {
     super.initState();
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    debugPrint("🔔 Foreground message received");
-    NotificationService.display(message);
-  });
- _initFirebaseMessaging(); 
+      debugPrint("🔔 Foreground message received");
+      NotificationService.display(message);
+    });
+    _initFirebaseMessaging();
     _initApp();
   }
-Future<void> _initFirebaseMessaging() async {
-  NotificationSettings settings =
-      await FirebaseMessaging.instance.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
 
-  debugPrint("🔔 Permission status: ${settings.authorizationStatus}");
+  Future<void> _initFirebaseMessaging() async {
+    NotificationSettings settings = await FirebaseMessaging.instance
+        .requestPermission(alert: true, badge: true, sound: true);
 
-  String? fcmToken = await FirebaseMessaging.instance.getToken();
-  String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+    debugPrint("🔔 Permission status: ${settings.authorizationStatus}");
 
-  debugPrint("🔥 FCM TOKEN = $fcmToken");
-  debugPrint("🍎 APNS TOKEN = $apnsToken");
-}
+    String? fcmToken = await FirebaseMessaging.instance.getToken();
+    String? apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+
+    debugPrint("🔥 FCM TOKEN = $fcmToken");
+    debugPrint("🍎 APNS TOKEN = $apnsToken");
+  }
 
   Future<void> _initApp() async {
     try {
@@ -95,8 +90,7 @@ Future<void> _initFirebaseMessaging() async {
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
       final userType = prefs.getString('user_type') ?? '';
 
-      final secureToken =
-          await _secureStorage.read(key: 'auth_token') ?? '';
+      final secureToken = await _secureStorage.read(key: 'auth_token') ?? '';
       final prefsToken = prefs.getString('auth_token') ?? '';
 
       final token = secureToken.isNotEmpty ? secureToken : prefsToken;
@@ -127,6 +121,8 @@ Future<void> _initFirebaseMessaging() async {
         return const TeacherDashboardScreen();
       case 'Student':
         return const DashboardScreen();
+      case 'Admin':
+        return const AdminDashboardPage();
       default:
         return LoginPage();
     }
