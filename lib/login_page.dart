@@ -118,15 +118,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> sendFcmTokenToLaravel() async {
-    final fcmToken = await FirebaseMessaging.instance.getToken();
-    debugPrint("FCM TOKEN: $fcmToken");
-
-    if (fcmToken == null || fcmToken.isEmpty) {
-      debugPrint('❌ FCM token not found');
-      return;
-    }
-
     try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        debugPrint('❌ FCM token not found');
+        return;
+      }
+
       final response = await ApiService.post(
         context,
         "/save_token",
@@ -137,7 +136,7 @@ class _LoginPageState extends State<LoginPage> {
         debugPrint("✅ FCM token sent successfully");
       }
     } catch (e) {
-      debugPrint("❌ FCM Error: $e");
+      debugPrint("❌ FCM ERROR: $e");
     }
   }
 
