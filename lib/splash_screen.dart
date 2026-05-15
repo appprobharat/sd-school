@@ -1,8 +1,7 @@
-
+import 'package:sd_school/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:sd_school/api_service.dart';
 import 'package:in_app_update/in_app_update.dart';
-import 'dart:io';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,26 +17,32 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkForUpdate();
   }
 
- Future<void> _checkForUpdate() async {
-  try {
-    // ✅ Only Android
-    if (Platform.isAndroid) {
-      final AppUpdateInfo updateInfo =
-          await InAppUpdate.checkForUpdate();
+  Future<void> _checkForUpdate() async {
+    try {
+      final AppUpdateInfo updateInfo = await InAppUpdate.checkForUpdate();
 
-      if (updateInfo.updateAvailability ==
-          UpdateAvailability.updateAvailable) {
+      if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
+        // 🔴 FORCE UPDATE
         await InAppUpdate.performImmediateUpdate();
       }
+    } catch (e) {
+      debugPrint("In-app update error: $e");
     }
-  } catch (e) {
-    debugPrint("In-app update error: $e");
+
+    _goNext();
   }
 
-  
-}
+  void _goNext() {
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
 
- 
+      // 👇 yahan apna next page lagao
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => LoginPage()),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
