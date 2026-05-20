@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:sd_school/login_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
@@ -13,9 +15,7 @@ import 'package:sd_school/Attendance_UI/attendance_pie_chart.dart';
 import 'package:sd_school/Notification/notification_list.dart';
 import 'package:sd_school/connect_teacher/connect_with_us.dart';
 import 'package:sd_school/dashboard/calendar.dart';
-// import 'package:sd_school/dashboard/dashboard_new.dart';
 import 'package:sd_school/dashboard/payment_screen.dart';
-// import 'package:sd_school/dashboard/stu_dashboard.dart';
 import 'package:sd_school/homework/homework_model.dart';
 import 'package:sd_school/homework/homework_page.dart';
 import 'package:sd_school/dashboard/timetable_page.dart';
@@ -241,7 +241,6 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
                       ),
                     ),
                   ),
-
                   title: Text(
                     name,
                     style: const TextStyle(fontWeight: FontWeight.w600),
@@ -278,12 +277,8 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
                             ),
                             ElevatedButton.icon(
                               onPressed: () async {
-                                Navigator.pop(
-                                  confirmContext,
-                                ); // close confirm dialog
-                                Navigator.pop(
-                                  context,
-                                ); // close sibling list dialog safely
+                                Navigator.pop(confirmContext);
+                                Navigator.pop(context);
                                 if (!mounted) return;
                                 await _shiftLogin(studentId);
                               },
@@ -364,177 +359,203 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
     int fine,
   ) {
     final totalAmount = dues + fine;
-    print('DEBUG: Dialog opened. Total amount: ₹$totalAmount');
+    TextEditingController amountController = TextEditingController();
 
     showDialog(
       context: dashboardContext,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'Confirm Payment',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDialogRow(' Fee Amount:', '₹$dues'),
-              _buildDialogRow(' Fine:', '₹$fine', color: Colors.red),
-              const Divider(),
-              _buildDialogRow('Total Payable:', '₹$totalAmount', isTotal: true),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: const Text(
-                "Cancel",
-                style: TextStyle(color: AppColors.primary),
-              ),
-              onPressed: () {
-                print('DEBUG: Payment cancelled by user from dialog.');
-                Navigator.pop(dialogContext);
-              },
-            ),
-            TextButton(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                textStyle: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              child: const Text("Proceed to Pay"),
-              onPressed: () async {
-                Navigator.pop(dialogContext);
+        int balanceAmount = totalAmount;
 
-                final totalDues = dues;
-                final lateFine = fine;
-                print('DEBUG: Proceed to Pay clicked. Starting API process...');
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text(
+                'Confirm Payment',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDialogRow(' Due Amount:', '₹$dues'),
+                  _buildDialogRow(' Fine:', '₹$fine', color: Colors.red),
 
-                ScaffoldMessenger.of(dashboardContext).showSnackBar(
-                  const SnackBar(
-                    content: Text('Initializing payment... Please wait.'),
+                  /// 🔥 FIXED INPUT
+                  _buildInputRow('Pay Amount:', amountController, (value) {
+                    int entered = int.tryParse(value) ?? 0;
+
+                    setStateDialog(() {
+                      balanceAmount = totalAmount - entered;
+                      if (balanceAmount < 0) balanceAmount = 0;
+                    });
+                  }),
+
+                  const Divider(),
+                  _buildDialogRow(
+                    'Total Payable:',
+                    '₹$totalAmount',
+                    isTotal: true,
                   ),
-                );
-                print('DEBUG: SnackBar shown. Calling initiatePayment...');
 
-                final paymentData = await initiatePayment(
-                  amount: totalDues,
-                  fine: lateFine,
-                );
+                  /// 🔥 LIVE BALANCE UPDATE
+                  _buildBalanceRow('Balance:', balanceAmount),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: AppColors.primary),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                  },
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  child: const Text("Proceed to Pay"),
+                  onPressed: () async {
+                    int enteredAmount =
+                        int.tryParse(amountController.text) ?? totalAmount;
 
-                if (paymentData != null) {
-                  final paymentUrl = paymentData['payment_url']!;
-                  final refNo = paymentData['ref_no']!;
+                    /// Validation
+                    if (enteredAmount <= 0 || enteredAmount > totalAmount) {
+                      ScaffoldMessenger.of(dashboardContext).showSnackBar(
+                        const SnackBar(content: Text("Enter valid amount")),
+                      );
+                      return;
+                    }
 
-                  print('DEBUG: Init Success. RefNo: $refNo, URL received.');
+                    Navigator.pop(dialogContext);
 
-                  final webViewResult = await Navigator.push(
-                    dashboardContext,
-                    MaterialPageRoute(
-                      builder: (_) => PaymentWebView(
-                        paymentUrl: paymentUrl,
-                        successRedirectUrl: 'flutter://payment-success',
-                        failureRedirectUrl: 'flutter://payment-failure',
-                      ),
-                    ),
-                  );
-                  print(
-                    'DEBUG: WebView closed. Result received: $webViewResult',
-                  );
-
-                  if (webViewResult == 'PAYMENT_COMPLETE') {
-                    print(
-                      'DEBUG: WebView reports completion. Checking final status...',
+                    final paymentData = await initiatePayment(
+                      beforePay: dues,
+                      fine: fine,
+                      amount: enteredAmount,
                     );
 
-                    final finalStatus = await checkPaymentStatus(refNo: refNo);
-                    print('DEBUG: Final Status from API: $finalStatus');
+                    if (paymentData != null) {
+                      final paymentUrl = paymentData['payment_url']!;
+                      final refNo = paymentData['ref_no']!;
 
-                    if (finalStatus == 'success') {
-                      ScaffoldMessenger.of(dashboardContext).showSnackBar(
-                        const SnackBar(content: Text('Payment Successful! ✅')),
-                      );
-                      await fetchDashboardData(context);
-                      print(
-                        'DEBUG: Dashboard data fetched successfully before popping.',
-                      );
-                      Navigator.pop(dashboardContext, true);
-                    } else if (finalStatus == 'pending') {
-                      ScaffoldMessenger.of(dashboardContext).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Payment Pending. Check dashboard later.',
+                      final webViewResult = await Navigator.push(
+                        dashboardContext,
+                        MaterialPageRoute(
+                          builder: (_) => PaymentWebView(
+                            paymentUrl: paymentUrl,
+                            successRedirectUrl: 'flutter://payment-success',
+                            failureRedirectUrl: 'flutter://payment-failure',
                           ),
                         ),
                       );
+
+                      if (webViewResult == 'PAYMENT_COMPLETE') {
+                        final finalStatus = await checkPaymentStatus(
+                          refNo: refNo,
+                        );
+
+                        if (finalStatus == 'success') {
+                          ScaffoldMessenger.of(dashboardContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Payment Successful! ✅'),
+                            ),
+                          );
+                          await fetchDashboardData(context);
+                          Navigator.pop(dashboardContext, true);
+                        } else {
+                          ScaffoldMessenger.of(dashboardContext).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Payment Failed. Status Check Failed/Unknown. ❌',
+                              ),
+                            ),
+                          );
+                        }
+                      } else {
+                        ScaffoldMessenger.of(dashboardContext).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Payment process failed or was cancelled. ❌',
+                            ),
+                          ),
+                        );
+                      }
                     } else {
                       ScaffoldMessenger.of(dashboardContext).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Payment Failed. Status Check Failed/Unknown. ❌',
+                            'Could not initialize payment. Please try again.',
                           ),
                         ),
                       );
                     }
-                  } else if (webViewResult == 'PAYMENT_FAILED') {
-                    print('DEBUG: WebView reports failure/cancellation.');
-                    ScaffoldMessenger.of(dashboardContext).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Payment process failed or was cancelled. ❌',
-                        ),
-                      ),
-                    );
-                  } else {
-                    print(
-                      'DEBUG: Result not PAYMENT_COMPLETE/FAILED. Status check skipped.',
-                    );
-                    ScaffoldMessenger.of(dashboardContext).showSnackBar(
-                      // ✅ dashboardContext
-                      const SnackBar(
-                        content: Text(
-                          'Payment process abandoned. Status not confirmed.',
-                        ),
-                      ),
-                    );
-                  }
-                } else {
-                  // API Call failed
-                  print('ERROR: initiatePayment failed (paymentData is null).');
-                  ScaffoldMessenger.of(dashboardContext).showSnackBar(
-                    // ✅ dashboardContext
-                    const SnackBar(
-                      content: Text(
-                        'Could not initialize payment. Please try again.',
-                      ),
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
+  Widget _buildBalanceRow(String label, int value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+          Text(
+            "₹$value",
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<Map<String, String>?> initiatePayment({
-    required int amount,
+    required int beforePay,
     required int fine,
+    required int amount,
   }) async {
     try {
       final response = await ApiService.post(
         context,
         "/student/payment/initiate",
-        body: {'amount': amount.toString(), 'fine': fine.toString()},
+        body: {
+          'beforepay': beforePay.toString(),
+          'fine': fine.toString(),
+          'amount': amount.toString(),
+        },
       );
 
       if (response == null) {
         debugPrint("❌ initiatePayment: response null");
         return null;
       }
-
+      debugPrint("📤 SENDING DATA:");
+      debugPrint("beforepay: $beforePay");
+      debugPrint("fine: $fine");
+      debugPrint("amount: $amount");
       debugPrint("DEBUG: StatusCode → ${response.statusCode}");
       debugPrint("DEBUG: Body → ${response.body}");
 
@@ -619,6 +640,58 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
               color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputRow(
+    String label,
+    TextEditingController controller,
+    Function(String) onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          /// 🔹 Label
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+
+          /// 🔹 Only numbers input
+          SizedBox(
+            width: 90,
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.right,
+
+              /// 🔥 MAIN VALIDATION HERE
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: "0",
+                contentPadding: EdgeInsets.symmetric(vertical: 6),
+                border: UnderlineInputBorder(),
+              ),
+
+              onChanged: (value) {
+                /// Extra safety (optional)
+                if (value.isEmpty) {
+                  controller.text = '';
+                }
+                onChanged(value);
+              },
             ),
           ),
         ],
@@ -1241,7 +1314,18 @@ class LeftSidebarMenu extends StatelessWidget {
                 );
               },
             ),
-        
+
+            // sidebarTile(
+            //   icon: Icons.dashboard,
+            //   context: context,
+            //   title: 'New Dashboard',
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (_) => StudentDashboard()),
+            //     );
+            //   },
+            // ),
             sidebarTile(
               icon: Icons.person,
               context: context,
@@ -1265,6 +1349,7 @@ class LeftSidebarMenu extends StatelessWidget {
                 );
               },
             ),
+         
             sidebarTile(
               context: context,
               icon: Icons.calendar_month,
@@ -1287,6 +1372,17 @@ class LeftSidebarMenu extends StatelessWidget {
                 );
               },
             ),
+            // sidebarTile(
+            //   context: context,
+            //   icon: Icons.bus_alert,
+            //   title: 'Bus Tracking',
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (_) => ParentBusTrackingPage()),
+            //     );
+            //   },
+            // ),
             sidebarTile(
               context: context,
               icon: Icons.calendar_month,
@@ -1321,6 +1417,7 @@ class LeftSidebarMenu extends StatelessWidget {
                 );
               },
             ),
+           
             sidebarTile(
               context: context,
               icon: Icons.receipt_long_outlined,
@@ -1426,9 +1523,17 @@ class LeftSidebarMenu extends StatelessWidget {
                         ),
                       ),
                       TextButton(
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.pop(context);
-                          ApiService.post(context, "/logout");
+
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.clear();
+                          if (!context.mounted) return;
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => LoginPage()),
+                            (route) => false,
+                          );
                         },
                         child: const Text("Logout"),
                       ),

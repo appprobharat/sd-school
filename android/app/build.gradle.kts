@@ -18,7 +18,7 @@ android {
         applicationId = "com.sdschooleducation.apppro"
         minSdk = flutter.minSdkVersion
         targetSdk = 35
-        versionCode = 4
+        versionCode = 5
         versionName = "1.0.4"
     }
 
