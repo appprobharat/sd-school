@@ -12,13 +12,13 @@ plugins {
 android {
     namespace = "com.sdschooleducation.apppro"
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.sdschooleducation.apppro"
         minSdk = flutter.minSdkVersion
         targetSdk = 35
-        versionCode = 5
+        versionCode = 6
         versionName = "1.0.4"
     }
 

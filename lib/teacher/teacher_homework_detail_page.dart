@@ -44,7 +44,7 @@ class TeacherHomeworkDetailPage extends StatelessWidget {
 
         final String filePath = '${downloadsDir.path}/$fileName';
         final File file = File(filePath);
-
+  await OpenFile.open(filePath); 
         await file.writeAsBytes(response.bodyBytes, flush: true);
 
         if (!context.mounted) return;
@@ -62,7 +62,7 @@ class TeacherHomeworkDetailPage extends StatelessWidget {
         await file.writeAsBytes(response.bodyBytes, flush: true);
 
         if (!context.mounted) return;
-        await OpenFile.open(filePath); // Files app
+        await OpenFile.open(filePath); 
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -135,15 +135,7 @@ class TeacherHomeworkDetailPage extends StatelessWidget {
                       backgroundColor: AppColors.primary,
                     ),
                     onPressed: () {
-                      String fileUrl = homework['Attachment'].toString();
-
-                      if (!fileUrl.startsWith('http')) {
-                        fileUrl =
-                            'https://s3.ap-south-1.amazonaws.com/'
-                            'school.edusathi.in/homeworks/$fileUrl';
-                      }
-
-                      debugPrint("📎 TEACHER HW DETAIL DOWNLOAD URL: $fileUrl");
+                     String fileUrl = homework['Attachment'].toString();
 
                       downloadFile(context, fileUrl, fileName);
                     },
