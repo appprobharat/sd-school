@@ -29,27 +29,20 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 //   await NotificationService.initialize();
 //   runApp(const MyApp());
 // }
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // ✅ Android only Firebase init
-    if (Platform.isAndroid) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
+    if (Platform.isAndroid) {
       FirebaseMessaging.onBackgroundMessage(
         _firebaseMessagingBackgroundHandler,
       );
 
       await NotificationService.initialize();
-    }
-
-    // ✅ iOS ke liye temporarily skip
-    if (Platform.isIOS) {
-      debugPrint("🍎 iOS: Firebase skipped");
     }
   } catch (e) {
     debugPrint("MAIN ERROR: $e");

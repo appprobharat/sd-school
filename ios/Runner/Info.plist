@@ -38,13 +38,10 @@
 	<string>LaunchScreen</string>
 
 	<!-- ❌ REMOVE Main storyboard (this was causing crash) -->
-
-	<!-- ✅ iPhone + iPad support -->
-	<key>UIDeviceFamily</key>
-	<array>
-		<integer>1</integer>
-		<integer>2</integer>
-	</array>
+<key>UIDeviceFamily</key>
+<array>
+    <integer>1</integer>
+</array>
 
 	<!-- ================= PERMISSIONS ================= -->
 
@@ -85,13 +82,6 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
 
 	<!-- ================= PERFORMANCE ================= -->
 
