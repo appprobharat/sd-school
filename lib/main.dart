@@ -32,25 +32,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  if (Platform.isAndroid) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
 
-    if (Platform.isAndroid) {
       FirebaseMessaging.onBackgroundMessage(
         _firebaseMessagingBackgroundHandler,
       );
 
       await NotificationService.initialize();
+    } catch (e) {
+      debugPrint("ANDROID FIREBASE ERROR: $e");
     }
-  } catch (e) {
-    debugPrint("MAIN ERROR: $e");
   }
 
   runApp(const MyApp());
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -63,7 +62,8 @@ class MyApp extends StatelessWidget {
 
       supportedLocales: const [Locale('en')],
 
-      home: const RootDecider(),
+      // home: const RootDecider(),//for ios bypass splash screen
+      home: LoginPage(),
     );
   }
 }
@@ -92,37 +92,42 @@ class _RootDeciderState extends State<RootDecider> {
   //   _initApp();
   // }
 
-  @override
-  void initState() {
-    super.initState();
+@override
+void initState() {
+  super.initState();
 
-    if (Platform.isAndroid) {
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        NotificationService.display(message);
-      });
+  if (Platform.isAndroid) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      NotificationService.display(message);
+    });
 
-      _initFirebaseMessaging();
-    }
-
-    _initApp();
+    _initFirebaseMessaging();
   }
 
-  Future<void> _initFirebaseMessaging() async {
-    if (!Platform.isAndroid) return;
+  _initApp();
+}
+ Future<void> _initFirebaseMessaging() async {
+  if (!Platform.isAndroid) return;
 
-    try {
-      NotificationSettings settings = await FirebaseMessaging.instance
-          .requestPermission(alert: true, badge: true, sound: true);
+  try {
+    NotificationSettings settings =
+        await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-      debugPrint("🔔 Permission status: ${settings.authorizationStatus}");
+    debugPrint(
+      "Permission status: ${settings.authorizationStatus}",
+    );
 
-      String? fcmToken = await FirebaseMessaging.instance.getToken();
+    String? token = await FirebaseMessaging.instance.getToken();
 
-      debugPrint("🔥 FCM TOKEN = $fcmToken");
-    } catch (e) {
-      debugPrint("FCM ERROR: $e");
-    }
+    debugPrint("FCM TOKEN: $token");
+  } catch (e) {
+    debugPrint("FCM ERROR: $e");
   }
+}
   // Future<void> _initFirebaseMessaging() async {
   //   NotificationSettings settings = await FirebaseMessaging.instance
   //       .requestPermission(alert: true, badge: true, sound: true);

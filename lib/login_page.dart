@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:sd_school/admin/admin_dashboard.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -117,30 +119,25 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> sendFcmTokenToLaravel() async {
+ Future<void> sendFcmTokenToLaravel() async {
+  if (!Platform.isAndroid) return;
+
+  try {
     final fcmToken = await FirebaseMessaging.instance.getToken();
-    debugPrint("FCM TOKEN: $fcmToken");
 
     if (fcmToken == null || fcmToken.isEmpty) {
-      debugPrint('❌ FCM token not found');
       return;
     }
 
-    try {
-      final response = await ApiService.post(
-        context,
-        "/save_token",
-        body: {'fcm_token': fcmToken},
-      );
-
-      if (response != null) {
-        debugPrint("✅ FCM token sent successfully");
-      }
-    } catch (e) {
-      debugPrint("❌ FCM Error: $e");
-    }
+    await ApiService.post(
+      context,
+      "/save_token",
+      body: {'fcm_token': fcmToken},
+    );
+  } catch (e) {
+    debugPrint("FCM ERROR: $e");
   }
-
+}
   void _launchURL() async {
     final Uri url = Uri.parse(AppAssets.companyWebsite);
 
