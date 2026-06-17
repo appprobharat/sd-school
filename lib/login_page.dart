@@ -69,9 +69,12 @@ class _LoginPageState extends State<LoginPage> {
 
       // 4️⃣ Success
       if (data['status'] == true) {
+ 
         await ApiService.saveSession(data);
 
-        await sendFcmTokenToLaravel();
+        if (Platform.isAndroid) {
+          await sendFcmTokenToLaravel();
+        }
 
         if (!mounted) return;
 
@@ -119,25 +122,28 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
- Future<void> sendFcmTokenToLaravel() async {
-  if (!Platform.isAndroid) return;
+  Future<void> sendFcmTokenToLaravel() async {
+    final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
 
-  try {
-    final fcmToken = await FirebaseMessaging.instance.getToken();
+    debugPrint("APNS TOKEN: $apnsToken");
 
-    if (fcmToken == null || fcmToken.isEmpty) {
+    if (apnsToken == null) {
+      debugPrint("❌ APNS token not available yet");
       return;
     }
+
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+
+    debugPrint("FCM TOKEN: $fcmToken");
+
+    if (fcmToken == null) return;
 
     await ApiService.post(
       context,
       "/save_token",
       body: {'fcm_token': fcmToken},
     );
-  } catch (e) {
-    debugPrint("FCM ERROR: $e");
   }
-}
   void _launchURL() async {
     final Uri url = Uri.parse(AppAssets.companyWebsite);
 
