@@ -50,6 +50,7 @@ Future<void> main() async {
 
   runApp(const MyApp());
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -92,42 +93,37 @@ class _RootDeciderState extends State<RootDecider> {
   //   _initApp();
   // }
 
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  if (Platform.isAndroid) {
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      NotificationService.display(message);
-    });
+    if (Platform.isAndroid) {
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        NotificationService.display(message);
+      });
 
-    _initFirebaseMessaging();
+      _initFirebaseMessaging();
+    }
+
+    _initApp();
   }
 
-  _initApp();
-}
- Future<void> _initFirebaseMessaging() async {
-  if (!Platform.isAndroid) return;
+  Future<void> _initFirebaseMessaging() async {
+    if (!Platform.isAndroid) return;
 
-  try {
-    NotificationSettings settings =
-        await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      NotificationSettings settings = await FirebaseMessaging.instance
+          .requestPermission(alert: true, badge: true, sound: true);
 
-    debugPrint(
-      "Permission status: ${settings.authorizationStatus}",
-    );
+      debugPrint("Permission status: ${settings.authorizationStatus}");
 
-    String? token = await FirebaseMessaging.instance.getToken();
+      String? token = await FirebaseMessaging.instance.getToken();
 
-    debugPrint("FCM TOKEN: $token");
-  } catch (e) {
-    debugPrint("FCM ERROR: $e");
+      debugPrint("FCM TOKEN: $token");
+    } catch (e) {
+      debugPrint("FCM ERROR: $e");
+    }
   }
-}
   // Future<void> _initFirebaseMessaging() async {
   //   NotificationSettings settings = await FirebaseMessaging.instance
   //       .requestPermission(alert: true, badge: true, sound: true);

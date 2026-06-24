@@ -69,7 +69,6 @@ class _LoginPageState extends State<LoginPage> {
 
       // 4️⃣ Success
       if (data['status'] == true) {
- 
         await ApiService.saveSession(data);
 
         if (Platform.isAndroid) {
@@ -144,6 +143,7 @@ class _LoginPageState extends State<LoginPage> {
       body: {'fcm_token': fcmToken},
     );
   }
+
   void _launchURL() async {
     final Uri url = Uri.parse(AppAssets.companyWebsite);
 
