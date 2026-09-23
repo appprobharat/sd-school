@@ -17,9 +17,9 @@ android {
     defaultConfig {
         applicationId = "com.sdschooleducation.apppro"
         minSdk = flutter.minSdkVersion
-        targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.4"
+        targetSdk = 36
+        versionCode = 9
+        versionName = "2.0.1"
     }
 
     compileOptions {
